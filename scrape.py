@@ -84,7 +84,7 @@ class SubredditScraper:
         posts = posts_table.find_all(attrs={'class': 'thing'})
         post_records = SubredditScraper.parse_posts_to_records(posts)
 
-        post_records = [p.update({'quarantined': is_quarantined})
+        post_records = [dict(quarantined=is_quarantined, **p)
                         for p in post_records]
 
         return post_records
