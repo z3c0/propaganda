@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import bs4
 
-REDDIT_ROOT_URL = 'https://old.reddit.com'
+REDDIT_ROOT_URL = 'old.reddit.com'
 
 # use a standard browser agent to circumvent reddit blocking the requests
 MOZILLA_USER_AGENT = {'User-Agent': 'Mozilla/5.0'}
