@@ -132,3 +132,6 @@ dmypy.json
 *.html
 *.csv
 *.xlsx
+
+# Executable files
+*.exe
