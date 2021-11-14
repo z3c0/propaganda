@@ -11,11 +11,8 @@ MOZILLA_USER_AGENT = {'User-Agent': 'Mozilla/5.0'}
 
 class SubredditScraper:
 
-    def __init__(self, subreddit_name: str):
-        self.subreddit = subreddit_name
-        self.subreddit_url = f'https://{REDDIT_ROOT_URL}/r/{self.subreddit}/'
-
-    def parse_posts_to_records(self, posts):
+    @staticmethod
+    def parse_posts_to_records(posts):
         post_records = list()
         for post in posts:
             post_id = post['id']
@@ -29,18 +26,19 @@ class SubredditScraper:
 
             title_soup = post.find('a', attrs={'class': 'title'})
 
-            if domain == 'self.propaganda':
+            if domain == f'self.{subreddit}':
                 post_type = 'text'
-            elif domain in ('youtube.com', 'youtu.be', 'vimeo.com', 'v.redd.it'):
+            elif domain in ('youtube.com', 'youtu.be',
+                            'vimeo.com', 'v.redd.it'):
                 post_type = 'video'
             elif domain in ('imgur.com', 'i.imgur.com', 'i.redd.it'):
                 post_type = 'image'
             else:
                 post_type = 'link'
 
-            link = (None if domain == f'self.{self.subreddit}'
+            link = (None if domain == f'self.{subreddit}'
                     else title_soup['href'])
-            domain = None if domain == f'self.{self.subreddit}' else domain
+            domain = None if domain == f'self.{subreddit}' else domain
 
             title = title_soup.get_text()
 
@@ -60,12 +58,14 @@ class SubredditScraper:
 
         return post_records
 
-    def scrape_posts(self) -> list:
-        response = requests.get(self.subreddit_url, headers=MOZILLA_USER_AGENT)
+    @staticmethod
+    def posts(subreddit: str) -> list:
+        subreddit_url = f'https://{REDDIT_ROOT_URL}/r/{subreddit}/'
+        response = requests.get(subreddit_url, headers=MOZILLA_USER_AGENT)
         subreddit_soup = bs4.BeautifulSoup(response.text, 'lxml')
         posts_table = subreddit_soup.find(attrs={'id': 'siteTable'})
         posts = posts_table.find_all(attrs={'class': 'thing'})
-        post_records = self.parse_posts_to_records(posts)
+        post_records = SubredditScraper.parse_posts_to_records(posts)
 
         return post_records
 
@@ -78,23 +78,23 @@ class SubredditScraper:
 
         return requests.post(**request_kwargs)
 
-    def scrape_user_submissions(self, author: str, count=100):
+    @staticmethod
+    def scrape_user_submissions(author: str, count=100):
         submissions_url = (f'{REDDIT_ROOT_URL}/user/{author}/submitted/'
                            f'?limit={str(count)}')
 
-        response = self.verify_over_18(submissions_url)
+        response = SubredditScraper.verify_over_18(submissions_url)
         submissions_soup = bs4.BeautifulSoup(response.text, 'lxml')
         posts_table = submissions_soup.find(attrs={'id': 'siteTable'})
         posts = posts_table.find_all(attrs={'class': 'thing'})
-        post_records = self.parse_posts_to_records(posts)
+        post_records = SubredditScraper.parse_posts_to_records(posts)
 
         return post_records
 
 
 if __name__ == '__main__':
 
-    scraper = SubredditScraper('propaganda')
-    posts = scraper.scrape_posts()
+    posts = SubredditScraper.posts('propaganda')
     posts_df = pd.DataFrame(posts)
 
     posts_df.to_csv('posts.csv', index=False)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     author_post_records = list()
 
     for author in posts_df['author'].unique():
-        author_posts = scraper.scrape_user_submissions(author)
+        author_posts = SubredditScraper.user_submissions(author)
         author_post_records += author_posts
 
     author_posts_df = pd.DataFrame(author_post_records)
