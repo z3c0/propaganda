@@ -15,9 +15,10 @@ class SubredditScraper:
     def parse_posts_to_records(posts):
         post_records = list()
         for post in posts:
+            author = post.get('data-author', '[deleted]')
+
             post_id = post['id']
             subreddit = post['data-subreddit']
-            author = post['data-author']
             domain = post['data-domain']
             comments = REDDIT_ROOT_URL + post['data-permalink']
             comments_count = post['data-comments-count']
@@ -79,7 +80,7 @@ class SubredditScraper:
         return requests.post(**request_kwargs)
 
     @staticmethod
-    def scrape_user_submissions(author: str, count=100):
+    def user_submissions(author: str, count=100):
         submissions_url = (f'{REDDIT_ROOT_URL}/user/{author}/submitted/'
                            f'?limit={str(count)}')
 
