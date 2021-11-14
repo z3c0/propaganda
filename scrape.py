@@ -63,16 +63,37 @@ class SubredditScraper:
     def posts(subreddit: str) -> list:
         subreddit_url = f'https://{REDDIT_ROOT_URL}/r/{subreddit}/'
         response = requests.get(subreddit_url, headers=MOZILLA_USER_AGENT)
+
+        is_quarantined = False
+
+        if response.status_code == 403:
+            redirect_history = response.history.pop()
+            if redirect_history.status_code == 302:
+                redirect_location = redirect_history.headers.get('location')
+                redirect_location = redirect_location.split('?')[0]
+                redirect_location = redirect_location.split('/')[-1]
+
+                if redirect_location == 'quarantine':
+                    is_quarantined = True
+                    response = SubredditScraper.verify_quarantine(subreddit)
+                else:
+                    raise Exception(f'Unknown Redirect: {redirect_location}')
+
         subreddit_soup = bs4.BeautifulSoup(response.text, 'lxml')
         posts_table = subreddit_soup.find(attrs={'id': 'siteTable'})
         posts = posts_table.find_all(attrs={'class': 'thing'})
         post_records = SubredditScraper.parse_posts_to_records(posts)
 
+        post_records = [p.update({'quarantined': is_quarantined})
+                        for p in post_records]
+
         return post_records
 
     @staticmethod
     def verify_over_18(target_url: str):
-        over_18_url = f'https://old.reddit.com/over18?dest={target_url}'
+        over_18_url = (f'https://{REDDIT_ROOT_URL}/over18'
+                       f'?dest={target_url}')
+
         request_kwargs = {'url': over_18_url,
                           'headers': MOZILLA_USER_AGENT,
                           'data': {'over18': 'yes'}}
@@ -80,9 +101,24 @@ class SubredditScraper:
         return requests.post(**request_kwargs)
 
     @staticmethod
+    def verify_quarantine(subreddit: str):
+        target_url = f'https://{REDDIT_ROOT_URL}/r/{subreddit}'
+        quarantine_url = (f'https://{REDDIT_ROOT_URL}/quarantine'
+                          f'?dest={target_url}')
+
+        request_kwargs = {'url': quarantine_url,
+                          'headers': MOZILLA_USER_AGENT,
+                          'data': {'sr_name': subreddit,
+                                   'accept': 'yes'}}
+
+        return requests.post(**request_kwargs)
+
+    @staticmethod
     def user_submissions(author: str, count=100):
         submissions_url = (f'{REDDIT_ROOT_URL}/user/{author}/submitted/'
                            f'?limit={str(count)}')
+
+        submissions_url = 'https://' + submissions_url
 
         response = SubredditScraper.verify_over_18(submissions_url)
         submissions_soup = bs4.BeautifulSoup(response.text, 'lxml')
