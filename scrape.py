@@ -20,7 +20,7 @@ class SubredditScraper:
             post_id = post['id']
             subreddit = post['data-subreddit']
             domain = post['data-domain']
-            comments = REDDIT_ROOT_URL + post['data-permalink']
+            comments = f'https://{REDDIT_ROOT_URL}' + post['data-permalink']
             comments_count = post['data-comments-count']
             score = post['data-score']
             timestamp = post['data-timestamp']
