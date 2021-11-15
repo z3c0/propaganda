@@ -5,8 +5,10 @@ import datetime as dt
 from scrape import SubredditScraper
 from whois import whois
 
-author_posts_df = pd.read_csv('propaganda_author_submissions.csv')
-propaganda_posts_df = pd.read_csv('propaganda_posts.csv')
+date_str = dt.date.today().strftime('%Y%m%d')
+
+author_posts_df = pd.read_csv(f'propaganda_author_submissions_{date_str}.csv')
+propaganda_posts_df = pd.read_csv(f'propaganda_posts_{date_str}.csv')
 
 author_posts_df = author_posts_df[author_posts_df.type == 'link']
 author_posts_df = author_posts_df.drop('type', axis=1)

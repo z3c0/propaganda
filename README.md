@@ -12,6 +12,6 @@ To run these scripts, first install the dependencies with pip
 python -m pip install -r requirements.txt
 ```
 
-`python scrape.py` will download the current top posts of `reddit.com/r/propaganda`.
+`python scripts/scrape.py` will download the current top posts of `reddit.com/r/propaganda`.
 
-`python propaganda_sub_analysis.py` will generate a Markdown file with a table of the posts.
+`python scripts/propaganda_sub_analysis.py` will generate a Markdown file with a table of the posts.
