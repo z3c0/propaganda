@@ -1,4 +1,5 @@
 
+import datetime as dt
 import requests
 import pandas as pd
 import bs4
@@ -144,5 +145,7 @@ if __name__ == '__main__':
 
     author_posts_df = pd.DataFrame(author_post_records)
 
-    posts_df.to_csv('propaganda_posts.csv', index=False)
-    author_posts_df.to_csv('propaganda_author_submissions.csv', index=False)
+    date_str = dt.date.today().strftime('%Y%m%d')
+
+    posts_df.to_csv(f'propaganda_posts_{date_str}.csv', index=False)
+    author_posts_df.to_csv(f'propaganda_author_submissions_{date_str}.csv', index=False)
