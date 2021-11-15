@@ -118,7 +118,14 @@ def download_whois_exe():
 def whois(url: str):
     domain, top_level = _parse_domain(url)
 
+    result_set = {'domain': domain,
+                  'top_level_domain': top_level}
+
     top_level_domain_map = _create_top_level_domain_map()
+
+    if top_level not in top_level_domain_map.keys():
+        print(f'Unknown TLD: .{top_level}')
+        return dict(unknown_tld=True, **result_set)
 
     if not os.path.exists('whois.exe'):
         download_whois_exe()
@@ -127,15 +134,14 @@ def whois(url: str):
     stdout, stderr = process.communicate()
 
     if stderr is not None:
-        raise Exception(stderr)
+        print(stderr)
 
     output = stdout.decode(errors='ignore')
     output = _check_whois_text_for_errors(output)
 
     has_dnssec = _check_whois_text_for_dnssec(output)
 
-    result_set = {'top_level_domain': top_level,
-                  'dnssec': has_dnssec}
+    result_set['dnssec'] = has_dnssec
 
     output = output.split('source:       IANA')[-1]
     server_names = re.findall(r'Server Name:\s?(.+)', output, re.IGNORECASE)
@@ -146,16 +152,23 @@ def whois(url: str):
     dotcom_patterns = top_level_domain_map['com']
     top_level_patterns = top_level_domain_map.get(top_level, dotcom_patterns)
 
+    print(output)
+
     for key, value in top_level_patterns.items():
         if value is None:
             result_set[key] = ['']
             continue
 
-        result_set[key] = value.findall(output) or ['']
+        values = value.findall(output)
+        # values = [v.strip() for v in values if v.strip() != '']
+
+        print(key, value, values)
+
+        result_set[key] = values or ['']
 
     return result_set
 
 
 if __name__ == '__main__':
-    results = whois('21337.tech')
+    results = whois('morningstaronline.co.uk')
     pp.pprint(results)

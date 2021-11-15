@@ -1,6 +1,5 @@
 
 class TopLevelDomainRegExp:
-
     com = {'extend': None,
            'domain_name': r'Domain Name:\s?(.+)',
            'registrar': r'Registrar:\s?(.+)',
@@ -126,18 +125,17 @@ class TopLevelDomainRegExp:
 
     com_au = {'extend': 'au'}
 
-    com_tr = {
-        'extend': 'com', 'domain_name': r'\*\* Domain Name:\s?(.+)',
-        'registrar': r'Organization Name\s+:\s?(.+)',
-        'registrant': r'\*\* Registrant:\s+?(.+)',
-        'registrant_country': None,
-        'creation_date': r'Created on..............:\s?(.+).',
-        'expiration_date': r'Expires on..............:\s?(.+).',
-        'updated_date': '',
-        'name_servers': (r'\*\* Domain Servers:\n(?:(\S+)\n)(?:(\S+)\n)?'
-                         r'(?:(\S+)\n)?(?:(\S+)\n)?(?:(\S+)\n)?'
-                         r'(?:(\S+)\n)\n?'),
-        'status': None}
+    com_tr = {'extend': 'com', 'domain_name': r'\*\* Domain Name:\s?(.+)',
+              'registrar': r'Organization Name\s+:\s?(.+)',
+              'registrant': r'\*\* Registrant:\s+?(.+)',
+              'registrant_country': None,
+              'creation_date': r'Created on..............:\s?(.+).',
+              'expiration_date': r'Expires on..............:\s?(.+).',
+              'updated_date': '',
+              'name_servers': (r'\*\* Domain Servers:\n(?:(\S+)\n)(?:(\S+)\n)?'
+                               r'(?:(\S+)\n)?(?:(\S+)\n)?(?:(\S+)\n)?'
+                               r'(?:(\S+)\n)\n?'),
+              'status': None}
 
     co_il = {'extend': 'com',
              'domain_name': r'domain:\s*(.+)',
