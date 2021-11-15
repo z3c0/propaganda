@@ -1,7 +1,6 @@
 import pandas as pd
 import pprint as pp
 import datetime as dt
-import json
 
 from scrape import SubredditScraper
 from whois import whois
