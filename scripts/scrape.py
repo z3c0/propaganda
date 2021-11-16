@@ -214,4 +214,4 @@ def download_subreddit_posts(subreddit: str):
 
 if __name__ == '__main__':
     # download_subreddit_posts('propaganda')
-    print(SubredditScraper.user_profile('ExtHD'))
+    print(SubredditScraper.user_profile('Just_Smith'))
