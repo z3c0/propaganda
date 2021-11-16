@@ -3,9 +3,10 @@ import datetime as dt
 import requests
 import pandas as pd
 import bs4
+import os
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -19,6 +20,18 @@ TIMEOUT = 5
 
 
 class SubredditScraper:
+
+    def __init__(self):
+        profile = webdriver.FirefoxProfile()
+        profile.add_extension(extension='ublock_origin-1.37.2-an+fx.xpi')
+
+        options = webdriver.FirefoxOptions()
+        options.headless = True
+
+        self.driver = webdriver.Firefox(profile, options=options)
+
+    def close(self):
+        self.driver.quit()
 
     @staticmethod
     def parse_posts_to_records(posts):
@@ -137,80 +150,76 @@ class SubredditScraper:
 
         return post_records
 
-    @staticmethod
-    def user_profile(username: str) -> dict:
-        profile = webdriver.FirefoxProfile()
-        profile.add_extension(extension='ublock_origin-1.37.2-an+fx.xpi')
-
-        options = webdriver.FirefoxOptions()
-        options.headless = True
-
-        driver = webdriver.Firefox(profile, options=options)
+    def user_profile(self, username: str) -> dict:
+        user_profile = {'username': username, 'suspended': False}
 
         user_overview_url = f'https://{REDDIT_ROOT_URL}/user/{username}'
         over_18_url = (f'https://{REDDIT_ROOT_URL}/over18'
                        f'?dest={user_overview_url}')
 
-        driver.get(over_18_url)
+        self.driver.get(over_18_url)
 
         continue_button_selector = 'div.buttons > button.c-btn[value=yes]'
         continue_button = (By.CSS_SELECTOR, continue_button_selector)
-        WebDriverWait(driver, TIMEOUT).until(EC.element_to_be_clickable(continue_button))
-        driver.find_element_by_css_selector(continue_button_selector).click()
+        WebDriverWait(self.driver, TIMEOUT).until(EC.element_to_be_clickable(continue_button))
+        self.driver.find_element_by_css_selector(continue_button_selector).click()
 
         sidebar_locator = (By.CSS_SELECTOR, 'div.side')
-
-        WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located(sidebar_locator))
-
-        user_profile = {'username': username}
-
         try:
-            titlebox_rendered = EC.text_to_be_present_in_element(sidebar_locator, username)
-            sidebar_is_rendered = WebDriverWait(driver, TIMEOUT).until(titlebox_rendered)
-
-            if sidebar_is_rendered:
-                sidebar = driver.find_element_by_css_selector('div.side')
-                titlebox = driver.find_element_by_css_selector('div.titlebox')
-            else:
-                raise Exception('titlebox could not be detected')
-
-            # account created
-            account_age_selector = 'span.age > time'
-            account_age = titlebox.find_element_by_css_selector(account_age_selector)
-            account_age = account_age.get_attribute('datetime')
-            account_age = dt.datetime.fromisoformat(account_age)
-            user_profile['account_created'] = int(account_age.timestamp())
-
-            # comment karma
-            comment_karma = titlebox.find_element_by_class_name('comment-karma')
-            comment_karma = int(comment_karma.text.replace(',', ''))
-            user_profile['comment_karma'] = comment_karma
-
-            # post karma
-            karma_selector = 'span.karma:first-of-type'
-            post_karma = titlebox.find_element_by_css_selector(karma_selector)
-            post_karma = int(post_karma.text.replace(',', ''))
-            user_profile['post_karma'] = post_karma
-
-            # mod subreddits
+            WebDriverWait(self.driver, TIMEOUT).until(EC.presence_of_element_located(sidebar_locator))
+        except TimeoutException as timeout:
             try:
-                mod_list = sidebar.find_element_by_id('side-mod-list')
-                mod_list = mod_list.find_elements_by_css_selector('a')
+                self.driver.find_element_by_partial_link_text('suspended')
             except NoSuchElementException:
-                mod_list = []
-            finally:
-                user_profile['moderator_of'] = ['/' + link.text for link in mod_list]
+                raise timeout
+            else:
+                user_profile['suspended'] = True
+                return user_profile
 
+        titlebox_rendered = EC.text_to_be_present_in_element(sidebar_locator, username)
+        sidebar_is_rendered = WebDriverWait(self.driver, TIMEOUT).until(titlebox_rendered)
+
+        if sidebar_is_rendered:
+            sidebar = self.driver.find_element_by_css_selector('div.side')
+            titlebox = self.driver.find_element_by_css_selector('div.titlebox')
+        else:
+            raise Exception('titlebox could not be detected')
+
+        # account created
+        account_age_selector = 'span.age > time'
+        account_age = titlebox.find_element_by_css_selector(account_age_selector)
+        account_age = account_age.get_attribute('datetime')
+        account_age = dt.datetime.fromisoformat(account_age)
+        user_profile['account_created'] = int(account_age.timestamp())
+
+        # comment karma
+        comment_karma = titlebox.find_element_by_class_name('comment-karma')
+        comment_karma = int(comment_karma.text.replace(',', ''))
+        user_profile['comment_karma'] = comment_karma
+
+        # post karma
+        karma_selector = 'span.karma:first-of-type'
+        post_karma = titlebox.find_element_by_css_selector(karma_selector)
+        post_karma = int(post_karma.text.replace(',', ''))
+        user_profile['post_karma'] = post_karma
+
+        # mod subreddits
+        try:
+            mod_list = sidebar.find_element_by_id('side-mod-list')
+            mod_list = mod_list.find_elements_by_css_selector('a')
+        except NoSuchElementException:
+            mod_list = []
         finally:
-            driver.quit()
+            user_profile['moderator_of'] = ['/' + link.text for link in mod_list]
 
         return user_profile
 
 
 def download_subreddit_posts(subreddit: str):
+    scraper = SubredditScraper()
 
     print(f'scraping posts from /r/{subreddit}...')
-    posts = SubredditScraper.posts(subreddit)
+    posts = scraper.posts(subreddit)
     posts_df = pd.DataFrame(posts)
 
     author_post_records = list()
@@ -218,12 +227,13 @@ def download_subreddit_posts(subreddit: str):
 
     for author in posts_df['author'].unique():
         print(f'scraping {author}\'s profile...')
-        author_record = SubredditScraper.user_profile(author)
-        
-        print(f'scraping {author}\'s submissions...')
-        author_posts = SubredditScraper.user_submissions(author)
+        author_record = scraper.user_profile(author)
 
-        author_post_records += author_posts
+        if not author_record['suspended']:
+            print(f'scraping {author}\'s submissions...')
+            author_posts = scraper.user_submissions(author)
+            author_post_records += author_posts
+
         author_records.append(author_record)
 
     author_posts_df = pd.DataFrame(author_post_records)
@@ -231,9 +241,15 @@ def download_subreddit_posts(subreddit: str):
 
     date_str = dt.date.today().strftime('%Y%m%d')
 
-    posts_df.to_csv(f'{subreddit}_posts_{date_str}.csv', index=False)
-    author_posts_df.to_csv(f'{subreddit}_author_submissions_{date_str}.csv', index=False)
+    try:
+        os.mkdir(f'data/{date_str}')
+    except FileExistsError:
+        pass
+    finally:
+        os.chdir(f'data/{date_str}')
 
+    posts_df.to_csv(f'{subreddit}_posts.csv', index=False)
+    author_posts_df.to_csv(f'{subreddit}_author_submissions.csv', index=False)
     author_df.to_json(f'{subreddit}_authors.json', orient='records')
 
 
