@@ -10,7 +10,7 @@ date_str = dt.date.today().strftime('%Y%m%d')
 author_posts_df = pd.read_csv(f'propaganda_author_submissions_{date_str}.csv')
 propaganda_posts_df = pd.read_csv(f'propaganda_posts_{date_str}.csv')
 
-author_posts_df = author_posts_df[author_posts_df.type == 'link']
+author_posts_df = author_posts_df[author_posts_df.type != 'text']
 author_posts_df = author_posts_df.drop('type', axis=1)
 
 
@@ -21,16 +21,14 @@ def fill_nan(df, series, value):
     return df
 
 
-def analyze_crossposts():
-    sub_df = propaganda_posts_df
-    submissions_df = author_posts_df
-
+def process_crossposts(sub_df: pd.DataFrame, submissions_df: pd.DataFrame):
     post_records = list()
 
     for author in sub_df.author.unique():
 
         propaganda_posts = sub_df[sub_df.author == author]
-        propaganda_posts = pd.DataFrame(propaganda_posts[propaganda_posts.type == 'link'])
+        text_posts = propaganda_posts.type == 'text'
+        propaganda_posts = pd.DataFrame(propaganda_posts[~text_posts])
         other_posts = submissions_df[submissions_df.author == author]
         other_posts = other_posts[other_posts.subreddit != 'propaganda']
         other_posts = pd.DataFrame(other_posts)
@@ -55,9 +53,16 @@ def analyze_crossposts():
 
         post_records += posts_json_records
 
+    return post_records
+
+
+def prepare_data(records: list) -> list:
     processed_records = list()
-    for record in post_records:
-        other_subreddits = ', '.join([v['subreddit'] for v in record['other_versions']])
+    for record in records:
+
+        # x-post subreddits
+        other_subreddits = ', '.join(['/r/' + v['subreddit']
+                                      for v in record['other_versions']])
         record['other_subreddits'] = other_subreddits
 
         # author
@@ -94,11 +99,23 @@ def analyze_crossposts():
 
         processed_records.append(new_record)
 
+    return processed_records
+
+
+def analyze_posts():
+    sub_df = propaganda_posts_df
+    submissions_df = author_posts_df
+
+    post_records_with_crossposts = process_crossposts(sub_df, submissions_df)
+    processed_records = prepare_data(post_records_with_crossposts)
+
     sort_kwargs = {'key': lambda n: n['Score'], 'reverse': True}
     processed_records = sorted(processed_records, **sort_kwargs)
 
+    unprocessed_data = pd.DataFrame(post_records_with_crossposts)
     processed_data = pd.DataFrame(processed_records)
     processed_data.to_markdown(open('propaganda_posts.md', 'w'), index=False)
+    unprocessed_data.to_json(open('propaganda_posts.json', 'w'), orient='records')
 
 
 def analyze_domains():
@@ -129,4 +146,4 @@ def download_posts_from_subreddits(subreddits: list):
 
 
 if __name__ == '__main__':
-    analyze_crossposts()
+    analyze_posts()
