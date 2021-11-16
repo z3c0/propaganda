@@ -3,6 +3,14 @@ import datetime as dt
 import requests
 import pandas as pd
 import bs4
+import pprint as pp
+
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.android.webdriver import WebDriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 REDDIT_ROOT_URL = 'old.reddit.com'
 
@@ -129,13 +137,66 @@ class SubredditScraper:
 
         return post_records
 
+    @staticmethod
+    def user_profile(username: str) -> dict:
+        profile = webdriver.FirefoxProfile()
+        profile.add_extension(extension='ublock_origin-1.37.2-an+fx.xpi')
 
-if __name__ == '__main__':
+        options = webdriver.FirefoxOptions()
+        options.headless = True
 
-    posts = SubredditScraper.posts('propaganda')
+        driver = webdriver.Firefox(profile, options=options)
+        driver.get(f'https://{REDDIT_ROOT_URL}/user/{username}')
+
+        user_profile = {'username': username}
+
+        try:
+            sidebar = (By.CSS_SELECTOR, 'div.side')
+            titlebox_rendered = EC.text_to_be_present_in_element(sidebar, username)
+            sidebar_is_rendered = WebDriverWait(driver, 60).until(titlebox_rendered)
+
+            if sidebar_is_rendered:
+                sidebar = driver.find_element(sidebar)
+                titlebox = driver.find_element_by_class_name('titlebox')
+            else:
+                raise Exception('titlebox could not be detected')
+
+            # account created
+            account_age_selector = 'span.age > time'
+            account_age = titlebox.find_element_by_css_selector(account_age_selector)
+            account_age = account_age.get_attribute('datetime')
+            account_age = dt.datetime.fromisoformat(account_age)
+            user_profile['account_created'] = int(account_age.timestamp())
+
+            # comment karma
+            comment_karma = titlebox.find_element_by_class_name('comment-karma')
+            comment_karma = int(comment_karma.text.replace(',', ''))
+            user_profile['comment_karma'] = comment_karma
+
+            # post karma
+            karma_selector = 'span.karma:first-of-type'
+            post_karma = titlebox.find_element_by_css_selector(karma_selector)
+            post_karma = int(post_karma.text.replace(',', ''))
+            user_profile['post_karma'] = post_karma
+
+            # mod subreddits
+            try:
+                mod_list = sidebar.find_element_by_id('side-mod-list')
+                mod_list = mod_list.find_elements_by_css_selector('a')
+            except NoSuchElementException:
+                mod_list = []
+            finally:
+                user_profile['moderator_of'] = [link.text for link in mod_list]
+
+        finally:
+            driver.quit()
+
+        return user_profile
+
+
+def download_subreddit_posts(subreddit: str):
+    posts = SubredditScraper.posts(subreddit)
     posts_df = pd.DataFrame(posts)
-
-    posts_df.to_csv('posts.csv', index=False)
 
     author_post_records = list()
 
@@ -147,5 +208,10 @@ if __name__ == '__main__':
 
     date_str = dt.date.today().strftime('%Y%m%d')
 
-    posts_df.to_csv(f'propaganda_posts_{date_str}.csv', index=False)
-    author_posts_df.to_csv(f'propaganda_author_submissions_{date_str}.csv', index=False)
+    posts_df.to_csv(f'{subreddit}_posts_{date_str}.csv', index=False)
+    author_posts_df.to_csv(f'{subreddit}_author_submissions_{date_str}.csv', index=False)
+
+
+if __name__ == '__main__':
+    # download_subreddit_posts('propaganda')
+    print(SubredditScraper.user_profile('ExtHD'))
