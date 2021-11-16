@@ -17,6 +17,8 @@ REDDIT_ROOT_URL = 'old.reddit.com'
 # use a standard browser agent to circumvent reddit blocking the requests
 MOZILLA_USER_AGENT = {'User-Agent': 'Mozilla/5.0'}
 
+TIMEOUT = 5
+
 
 class SubredditScraper:
 
@@ -146,18 +148,31 @@ class SubredditScraper:
         options.headless = True
 
         driver = webdriver.Firefox(profile, options=options)
-        driver.get(f'https://{REDDIT_ROOT_URL}/user/{username}')
+
+        user_overview_url = f'https://{REDDIT_ROOT_URL}/user/{username}'
+        over_18_url = (f'https://{REDDIT_ROOT_URL}/over18'
+                       f'?dest={user_overview_url}')
+
+        driver.get(over_18_url)
+
+        continue_button_selector = 'div.buttons > button.c-btn[value=yes]'
+        continue_button = (By.CSS_SELECTOR, continue_button_selector)
+        WebDriverWait(driver, TIMEOUT).until(EC.element_to_be_clickable(continue_button))
+        driver.find_element_by_css_selector(continue_button_selector).click()
+
+        sidebar_locator = (By.CSS_SELECTOR, 'div.side')
+
+        WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located(sidebar_locator))
 
         user_profile = {'username': username}
 
         try:
-            sidebar = (By.CSS_SELECTOR, 'div.side')
-            titlebox_rendered = EC.text_to_be_present_in_element(sidebar, username)
-            sidebar_is_rendered = WebDriverWait(driver, 60).until(titlebox_rendered)
+            titlebox_rendered = EC.text_to_be_present_in_element(sidebar_locator, username)
+            sidebar_is_rendered = WebDriverWait(driver, TIMEOUT).until(titlebox_rendered)
 
             if sidebar_is_rendered:
-                sidebar = driver.find_element(sidebar)
-                titlebox = driver.find_element_by_class_name('titlebox')
+                sidebar = driver.find_element_by_css_selector('div.side')
+                titlebox = driver.find_element_by_css_selector('div.titlebox')
             else:
                 raise Exception('titlebox could not be detected')
 
@@ -186,7 +201,7 @@ class SubredditScraper:
             except NoSuchElementException:
                 mod_list = []
             finally:
-                user_profile['moderator_of'] = [link.text for link in mod_list]
+                user_profile['moderator_of'] = ['/' + link.text for link in mod_list]
 
         finally:
             driver.quit()
@@ -213,5 +228,4 @@ def download_subreddit_posts(subreddit: str):
 
 
 if __name__ == '__main__':
-    # download_subreddit_posts('propaganda')
-    print(SubredditScraper.user_profile('Just_Smith'))
+    download_subreddit_posts('propaganda')
