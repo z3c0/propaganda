@@ -210,21 +210,33 @@ class SubredditScraper:
 
 
 def download_subreddit_posts(subreddit: str):
+
+    print(f'scraping posts from /r/{subreddit}...')
     posts = SubredditScraper.posts(subreddit)
     posts_df = pd.DataFrame(posts)
 
     author_post_records = list()
+    author_records = list()
 
     for author in posts_df['author'].unique():
+        print(f'scraping {author}\'s profile...')
+        author_record = SubredditScraper.user_profile(author)
+        
+        print(f'scraping {author}\'s submissions...')
         author_posts = SubredditScraper.user_submissions(author)
+
         author_post_records += author_posts
+        author_records.append(author_record)
 
     author_posts_df = pd.DataFrame(author_post_records)
+    author_df = pd.DataFrame(author_records)
 
     date_str = dt.date.today().strftime('%Y%m%d')
 
     posts_df.to_csv(f'{subreddit}_posts_{date_str}.csv', index=False)
     author_posts_df.to_csv(f'{subreddit}_author_submissions_{date_str}.csv', index=False)
+
+    author_df.to_json(f'{subreddit}_authors.json', orient='records')
 
 
 if __name__ == '__main__':
