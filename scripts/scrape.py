@@ -70,7 +70,7 @@ class SubredditScraper:
 
     @staticmethod
     def posts(subreddit: str) -> list:
-        subreddit_url = f'https://{REDDIT_ROOT_URL}/r/{subreddit}/'
+        subreddit_url = f'https://{REDDIT_ROOT_URL}/r/{subreddit}?limit=100'
         response = requests.get(subreddit_url, headers=MOZILLA_USER_AGENT)
 
         is_quarantined = False
