@@ -128,12 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Data files
-*.html
-*.csv
-*.xlsx
-*.json
-*_posts.md
-
 # Executable files
 *.exe

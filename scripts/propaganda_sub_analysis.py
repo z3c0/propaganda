@@ -7,8 +7,8 @@ from whois import whois
 
 date_str = dt.date.today().strftime('%Y%m%d')
 
-author_posts_df = pd.read_csv(f'propaganda_author_submissions_{date_str}.csv')
-propaganda_posts_df = pd.read_csv(f'propaganda_posts_{date_str}.csv')
+author_posts_df = pd.read_csv(f'data/{date_str}/propaganda_author_submissions.csv')
+propaganda_posts_df = pd.read_csv(f'data/{date_str}/propaganda_posts.csv')
 
 author_posts_df = author_posts_df[author_posts_df.type != 'text']
 author_posts_df = author_posts_df.drop('type', axis=1)
@@ -87,8 +87,9 @@ def prepare_data(records: list) -> list:
         # domain
         domain = record['domain']
         if domain in ('old.reddit.com', 'np.reddit.com'):
-            domain = 'reddit.com/' + '/'.join(link.split('reddit.com/')[1].split('/')[:2])
-        record['domain'] = f'[{domain}](https://{domain})'
+            if link.find('reddit.com') != -1:
+                domain = 'reddit.com/' + '/'.join(link.split('reddit.com/')[1].split('/')[:2])
+            record['domain'] = f'[{domain}](https://{domain})'
 
         new_record = {'Title': record['title'],
                       'Source': record['domain'],
@@ -112,10 +113,8 @@ def analyze_posts():
     sort_kwargs = {'key': lambda n: n['Score'], 'reverse': True}
     processed_records = sorted(processed_records, **sort_kwargs)
 
-    unprocessed_data = pd.DataFrame(post_records_with_crossposts)
     processed_data = pd.DataFrame(processed_records)
-    processed_data.to_markdown(open('propaganda_posts.md', 'w'), index=False)
-    unprocessed_data.to_json(open('propaganda_posts.json', 'w'), orient='records')
+    processed_data.to_markdown(open(f'data/{date_str}/propaganda_posts.md', 'w', encoding='utf8'), index=False)
 
 
 def analyze_domains():
