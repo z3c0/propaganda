@@ -21,12 +21,12 @@ TIMEOUT = 5
 
 class SubredditScraper:
 
-    def __init__(self):
+    def __init__(self, headless=True):
         profile = webdriver.FirefoxProfile()
         profile.add_extension(extension='ublock_origin-1.37.2-an+fx.xpi')
 
         options = webdriver.FirefoxOptions()
-        options.headless = True
+        options.headless = headless
 
         self.driver = webdriver.Firefox(profile, options=options)
 
@@ -210,16 +210,20 @@ class SubredditScraper:
         except NoSuchElementException:
             mod_list = []
         finally:
-            user_profile['moderator_of'] = ['/' + link.text for link in mod_list]
+            mod_list = [link.get_attribute('href').split(REDDIT_ROOT_URL)[-1]
+                        for link in mod_list]
+            mod_list = ['/' + ('/'.join([n for n in s.split('/') if n != '']))
+                        for s in mod_list]
+            user_profile['moderator_of'] = mod_list
 
         return user_profile
 
 
 def download_subreddit_posts(subreddit: str):
-    scraper = SubredditScraper()
+    scrape = SubredditScraper()
 
     print(f'scraping posts from /r/{subreddit}...')
-    posts = scraper.posts(subreddit)
+    posts = scrape.posts(subreddit)
     posts_df = pd.DataFrame(posts)
 
     author_post_records = list()
@@ -227,11 +231,11 @@ def download_subreddit_posts(subreddit: str):
 
     for author in posts_df['author'].unique():
         print(f'scraping {author}\'s profile...')
-        author_record = scraper.user_profile(author)
+        author_record = scrape.user_profile(author)
 
         if not author_record['suspended']:
             print(f'scraping {author}\'s submissions...')
-            author_posts = scraper.user_submissions(author)
+            author_posts = scrape.user_submissions(author)
             author_post_records += author_posts
 
         author_records.append(author_record)
