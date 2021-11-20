@@ -151,7 +151,9 @@ class SubredditScraper:
         return post_records
 
     def user_profile(self, username: str) -> dict:
-        user_profile = {'username': username, 'suspended': False}
+        user_profile = {'username': username,
+                        'suspended': False,
+                        'moderator_of': []}
 
         user_overview_url = f'https://{REDDIT_ROOT_URL}/user/{username}'
         over_18_url = (f'https://{REDDIT_ROOT_URL}/over18'
