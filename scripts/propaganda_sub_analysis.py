@@ -133,8 +133,12 @@ def analyze_posts():
     processed_records = sorted(processed_records, **sort_kwargs)
 
     processed_data = pd.DataFrame(processed_records)
-    processed_data.to_markdown(open(f'data/{date_str}/propaganda_posts.md', 'w', encoding='utf8'), index=False)
-
+    posts_report = processed_data[['Title', 'Source', 'Comments', 'Score', 'Author', 'X-post Subreddits']]
+    users_columns = ['Author', 'Karma Ratio', 'Moderator Of']
+    users_report = processed_data[users_columns]
+    users_report = users_report.groupby(users_columns).count()
+    posts_report.to_markdown(open(f'data/{date_str}/propaganda_posts.md', 'w', encoding='utf8'), index=False)
+    users_report.to_markdown(open(f'data/{date_str}/propaganda_users.md', 'w', encoding='utf8'), index=False)
 
 def analyze_domains():
     '''DO NOT USE - work-in-progress'''
