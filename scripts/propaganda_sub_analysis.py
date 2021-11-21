@@ -135,8 +135,11 @@ def analyze_posts():
     processed_data = pd.DataFrame(processed_records)
     posts_report = processed_data[['Title', 'Source', 'Comments', 'Score', 'Author', 'X-post Subreddits']]
     users_columns = ['Author', 'Karma Ratio', 'Moderator Of']
-    users_report = processed_data[users_columns]
-    users_report = users_report.groupby(users_columns).count()
+    users_report = processed_data.groupby(users_columns)['Title'].count()
+    users_report = users_report.reset_index()
+    users_report = users_report.rename({'Title': 'Post Count'}, axis=1)
+    users_report = users_report.sort_values('Post Count', ascending=False)
+
     posts_report.to_markdown(open(f'data/{date_str}/propaganda_posts.md', 'w', encoding='utf8'), index=False)
     users_report.to_markdown(open(f'data/{date_str}/propaganda_users.md', 'w', encoding='utf8'), index=False)
 
