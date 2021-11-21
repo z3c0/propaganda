@@ -61,6 +61,8 @@ class SubredditScraper:
 
             link = (None if domain == f'self.{subreddit}'
                     else title_soup['href'])
+            link = link if link[0] != '/' else 'https://reddit.com' + link
+
             domain = None if domain == f'self.{subreddit}' else domain
 
             title = title_soup.get_text()
