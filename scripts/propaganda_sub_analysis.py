@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pprint as pp
 import datetime as dt
@@ -7,12 +8,6 @@ from whois import whois
 
 date_str = dt.date.today().strftime('%Y%m%d')
 
-author_posts_df = pd.read_csv(f'data/{date_str}/propaganda_author_submissions.csv')
-propaganda_posts_df = pd.read_csv(f'data/{date_str}/propaganda_posts.csv')
-
-author_posts_df = author_posts_df[author_posts_df.type != 'text']
-author_posts_df = author_posts_df.drop('type', axis=1)
-
 
 def fill_nan(df, series, value):
     for row in df.loc[df[series].isnull(), series].index:
@@ -21,7 +16,7 @@ def fill_nan(df, series, value):
     return df
 
 
-def process_crossposts(sub_df: pd.DataFrame, submissions_df: pd.DataFrame):
+def process_crossposts(sub_df: pd.DataFrame, submissions_df: pd.DataFrame, user_df: pd.DataFrame):
     post_records = list()
 
     for author in sub_df.author.unique():
@@ -49,6 +44,8 @@ def process_crossposts(sub_df: pd.DataFrame, submissions_df: pd.DataFrame):
         propaganda_posts = propaganda_posts.join(crossposts, on='post_id', how='left')
         propaganda_posts = fill_nan(propaganda_posts, 'other_versions', [])
 
+        propaganda_posts = propaganda_posts.join(user_df, on='author', how='left')
+
         posts_json_records = propaganda_posts.to_dict(orient='records')
 
         post_records += posts_json_records
@@ -61,13 +58,16 @@ def prepare_data(records: list) -> list:
     for record in records:
 
         # x-post subreddits
-        other_subreddits = ', '.join(['/r/' + v['subreddit']
-                                      for v in record['other_versions']])
+        other_subreddits = ', '.join({'/r/' + v['subreddit']
+                                      for v in record['other_versions']})
         record['other_subreddits'] = other_subreddits
 
         # author
         author = record['author']
-        record['author'] = f'{author} ([profile](https://reddit.com/user/{author}))'
+        record['author'] = f'[{author}](https://reddit.com/user/{author})'
+
+        moderator_of = record['moderator_of']
+        karma_ratio = record['karma_ratio']
 
         # timestamp
         timestamp = int(record['timestamp']) / 1000
@@ -96,6 +96,8 @@ def prepare_data(records: list) -> list:
                       'Score': record['score'],
                       'Comments': record['comments'],
                       'Author': record['author'],
+                      'Karma Ratio': record['karma_ratio'],
+                      'Moderator Of': record['moderator_of'],
                       'X-post Subreddits': record['other_subreddits']}
 
         processed_records.append(new_record)
@@ -104,10 +106,27 @@ def prepare_data(records: list) -> list:
 
 
 def analyze_posts():
-    sub_df = propaganda_posts_df
-    submissions_df = author_posts_df
+    author_posts_df = pd.read_csv(f'data/{date_str}/propaganda_author_submissions.csv')
+    propaganda_posts_df = pd.read_csv(f'data/{date_str}/propaganda_posts.csv')
+    author_df = pd.read_json(f'data/{date_str}/propaganda_authors.json')
 
-    post_records_with_crossposts = process_crossposts(sub_df, submissions_df)
+    post_karma = author_df.post_karma.fillna(-np.inf)
+    comment_karma = author_df.comment_karma.fillna(-np.inf)
+
+    post_karma = np.where(post_karma == 0, 1, post_karma)
+    comment_karma = np.where(comment_karma == 0, 1, comment_karma)
+    author_df['karma_ratio'] = post_karma / comment_karma
+
+    author_df['moderator_of'] = author_df.moderator_of.apply(', '.join)
+
+    author_df = author_df.rename({'username': 'author'}, axis=1)
+
+    author_posts_df = author_posts_df[author_posts_df.type != 'text']
+    author_posts_df = author_posts_df.drop('type', axis=1)
+
+    author_df = author_df.set_index('author')
+
+    post_records_with_crossposts = process_crossposts(propaganda_posts_df, author_posts_df, author_df)
     processed_records = prepare_data(post_records_with_crossposts)
 
     sort_kwargs = {'key': lambda n: n['Score'], 'reverse': True}
@@ -119,6 +138,9 @@ def analyze_posts():
 
 def analyze_domains():
     '''DO NOT USE - work-in-progress'''
+    author_posts_df = pd.read_csv(f'data/{date_str}/propaganda_author_submissions.csv')
+    author_posts_df = author_posts_df[author_posts_df.type != 'text']
+    author_posts_df = author_posts_df.drop('type', axis=1)
 
     domain_analysis = list()
 
