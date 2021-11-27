@@ -6,7 +6,9 @@ import datetime as dt
 from scrape import SubredditScraper
 from whois import whois
 
-date_str = dt.date.today().strftime('%Y%m%d')
+today = dt.date.today()
+today_str = today.strftime('%Y%m%d')
+last_week_str = (today - dt.timedelta(days=7)).strftime('%Y%m%d')
 
 
 def fill_nan(df, series, value):
@@ -95,7 +97,7 @@ def prepare_data(records: list) -> list:
                       'Source': record['domain'],
                       'Score': record['score'],
                       'Comments': record['comments'],
-                      'Author': record['author'],
+                      'Author': record['author_display'],
                       'Post/Comment Karma Ratio': record['karma_ratio'],
                       'Moderator Of': record['moderator_of'],
                       'X-post Subreddits': record['other_subreddits']}
@@ -106,9 +108,20 @@ def prepare_data(records: list) -> list:
 
 
 def analyze_posts():
-    author_posts_df = pd.read_csv(f'data/{date_str}/propaganda_author_submissions.csv')
-    propaganda_posts_df = pd.read_csv(f'data/{date_str}/propaganda_posts.csv')
-    author_df = pd.read_json(f'data/{date_str}/propaganda_authors.json')
+    last_week_author_posts_df = pd.read_csv(f'data/{last_week_str}/propaganda_author_submissions.csv')
+    last_week_propaganda_posts_df = pd.read_csv(f'data/{last_week_str}/propaganda_posts.csv')
+    last_week_author_df = pd.read_json(f'data/{last_week_str}/propaganda_authors.json')
+
+    author_posts_df = pd.read_csv(f'data/{today_str}/propaganda_author_submissions.csv')
+    propaganda_posts_df = pd.read_csv(f'data/{today_str}/propaganda_posts.csv')
+    author_df = pd.read_json(f'data/{today_str}/propaganda_authors.json')
+
+    # new_author_posts = author_posts_df.post_id.isin(last_week_author_posts_df.post_id)
+    new_propaganda_posts = ~propaganda_posts_df.post_id.isin(last_week_propaganda_posts_df.post_id)
+    new_authors = ~author_df.username.isin(last_week_author_df.username)
+
+    propaganda_posts_df = propaganda_posts_df[new_propaganda_posts]
+    author_df['is_new'] = new_authors
 
     post_karma = author_df.post_karma.fillna(-np.inf)
     comment_karma = author_df.comment_karma.fillna(-np.inf)
@@ -125,6 +138,7 @@ def analyze_posts():
     author_posts_df = author_posts_df.drop('type', axis=1)
 
     author_df = author_df.set_index('author')
+    author_df['author_display'] = np.where(author_df.is_new, author_df.index + ' (NEW)', author_df.index)
 
     post_records_with_crossposts = process_crossposts(propaganda_posts_df, author_posts_df, author_df)
     processed_records = prepare_data(post_records_with_crossposts)
@@ -140,12 +154,16 @@ def analyze_posts():
     users_report = users_report.rename({'Title': 'Post Count'}, axis=1)
     users_report = users_report.sort_values('Post Count', ascending=False)
 
-    posts_report.to_markdown(open(f'data/{date_str}/propaganda_posts.md', 'w', encoding='utf8'), index=False)
-    users_report.to_markdown(open(f'data/{date_str}/propaganda_users.md', 'w', encoding='utf8'), index=False)
+    print(f'New Posts Count: {len(posts_report)}')
+    print(f'This Week\'s Author Count: {len(users_report)}')
+
+    posts_report.to_markdown(open(f'data/{today_str}/propaganda_posts.md', 'w', encoding='utf8'), index=False)
+    users_report.to_markdown(open(f'data/{today_str}/propaganda_users.md', 'w', encoding='utf8'), index=False)
+
 
 def analyze_domains():
     '''DO NOT USE - work-in-progress'''
-    author_posts_df = pd.read_csv(f'data/{date_str}/propaganda_author_submissions.csv')
+    author_posts_df = pd.read_csv(f'data/{today_str}/propaganda_author_submissions.csv')
     author_posts_df = author_posts_df[author_posts_df.type != 'text']
     author_posts_df = author_posts_df.drop('type', axis=1)
 
