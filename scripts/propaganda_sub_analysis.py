@@ -8,7 +8,16 @@ from whois import whois
 
 today = dt.date.today()
 today_str = today.strftime('%Y%m%d')
-last_week_str = (today - dt.timedelta(days=7)).strftime('%Y%m%d')
+
+lookback = 7
+while lookback < 100000:
+    try:
+        last_week_str = (today - dt.timedelta(days=lookback)).strftime('%Y%m%d')
+        open(f'data/{last_week_str}/propaganda_author_submissions.csv').close()
+    except FileNotFoundError:
+        lookback += 1
+    else:
+        break
 
 
 def fill_nan(df, series, value):
