@@ -4,6 +4,7 @@ import pprint as pp
 import datetime as dt
 
 from scrape import SubredditScraper
+from textual_analysis import tokenize
 from whois import whois
 
 today = dt.date.today()
@@ -64,6 +65,39 @@ def process_crossposts(sub_df: pd.DataFrame, submissions_df: pd.DataFrame, user_
     return post_records
 
 
+def process_buzzwords(records):
+    terms_df = pd.read_json(f'data/{today_str}/author_terms.json')
+
+    terms_df = terms_df.explode('terms')
+    terms_df['term'] = terms_df['terms'].apply(lambda n: n['term'])
+    terms_df['tf_idf'] = terms_df['terms'].apply(lambda n: n['tf_idf'])
+    terms_df['count'] = terms_df['terms'].apply(lambda n: n['count'])
+
+    rank_kwargs = {'method': 'dense', 'ascending': False}
+    terms_df['rank'] = terms_df.groupby('author')['tf_idf'].rank(**rank_kwargs)
+
+    terms_df = terms_df.drop('terms', axis=1)
+
+    terms_df = terms_df[5 >= terms_df['rank']]
+
+    terms_df['token'] = terms_df['term'].apply(lambda n: tokenize(n)[0][0])
+    terms_df = terms_df.groupby(['author', 'token', 'tf_idf', 'rank'])['term'].agg(list).reset_index()
+    terms_df['term'] = terms_df['term'].apply(np.vectorize(str.lower)).apply(set).apply('/'.join)
+
+    terms_df = terms_df.groupby(['author', 'rank'])['term'].agg(list).reset_index()
+    terms_df['term'] = terms_df['term'].apply(', '.join)
+
+    terms_df = terms_df.sort_values(['author', 'rank'])
+
+    terms_df['term'] = terms_df.apply(lambda n: f'{int(n["rank"])}) {n["term"]}', axis=1)
+
+    term = terms_df.groupby('author')['term'].agg('\n'.join)
+
+    records = list(map(lambda n: dict(n, buzzwords=term[n['author']]), records))
+
+    return records
+
+
 def prepare_data(records: list) -> list:
     processed_records = list()
     for record in records:
@@ -76,9 +110,6 @@ def prepare_data(records: list) -> list:
         # author
         author = record['author']
         record['author'] = f'[{author}](https://reddit.com/user/{author})'
-
-        moderator_of = record['moderator_of']
-        karma_ratio = record['karma_ratio']
 
         # timestamp
         timestamp = int(record['timestamp']) / 1000
@@ -109,7 +140,8 @@ def prepare_data(records: list) -> list:
                       'Author': record['author_display'],
                       'Post/Comment Karma Ratio': record['karma_ratio'],
                       'Moderator Of': record['moderator_of'],
-                      'X-post Subreddits': record['other_subreddits']}
+                      'X-post Subreddits': record['other_subreddits'],
+                      'Buzzwords': record['buzzwords']}
 
         processed_records.append(new_record)
 
@@ -150,7 +182,8 @@ def analyze_posts():
     author_df['author_display'] = np.where(author_df.is_new, author_df.index + ' (NEW)', author_df.index)
 
     post_records_with_crossposts = process_crossposts(propaganda_posts_df, author_posts_df, author_df)
-    processed_records = prepare_data(post_records_with_crossposts)
+    post_records_with_buzzwords = process_buzzwords(post_records_with_crossposts)
+    processed_records = prepare_data(post_records_with_buzzwords)
 
     sort_kwargs = {'key': lambda n: n['Score'], 'reverse': True}
     processed_records = sorted(processed_records, **sort_kwargs)

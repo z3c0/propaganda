@@ -130,3 +130,6 @@ dmypy.json
 
 # Executable files
 *.exe
+
+# Reports
+*.pbix
