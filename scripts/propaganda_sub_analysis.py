@@ -82,16 +82,23 @@ def process_buzzwords(records):
 
     terms_df['token'] = terms_df['term'].apply(lambda n: tokenize(n)[0][0])
     terms_df = terms_df.groupby(['author', 'token', 'tf_idf', 'rank'])['term'].agg(list).reset_index()
+
     terms_df['term'] = terms_df['term'].apply(np.vectorize(str.lower)).apply(set).apply('/'.join)
 
     terms_df = terms_df.groupby(['author', 'rank'])['term'].agg(list).reset_index()
+
+    # filter out ranks with more than 15 words; such a large group would
+    # indicate that the author does not have enough posts from which to derive
+    # a meaningful pattern
+    terms_df = terms_df[15 >= terms_df.term.apply(len)]
+
     terms_df['term'] = terms_df['term'].apply(', '.join)
 
     terms_df = terms_df.sort_values(['author', 'rank'])
 
     terms_df['term'] = terms_df.apply(lambda n: f'{int(n["rank"])}) {n["term"]}', axis=1)
 
-    term = terms_df.groupby('author')['term'].agg('\n'.join)
+    term = terms_df.groupby('author')['term'].agg('<br />'.join)
 
     records = list(map(lambda n: dict(n, buzzwords=term[n['author']]), records))
 

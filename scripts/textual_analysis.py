@@ -16,6 +16,7 @@ today_str = today.strftime('%Y%m%d')
 
 WORD_PATTERN = re.compile(r'[a-zA-Z]+')
 STOPWORDS = np.r_[np.unique(stopwords.words('english')),
+                  np.unique(stopwords.words('spanish')),
                   np.unique(['-', 'propaganda'])]
 
 
