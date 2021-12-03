@@ -190,7 +190,7 @@ def analyze_posts():
 
     processed_data = pd.DataFrame(processed_records)
     posts_report = processed_data[['Title', 'Source', 'Comments', 'Score', 'Author', 'X-post Subreddits']]
-    users_columns = ['Author', 'Post/Comment Karma Ratio', 'Moderator Of']
+    users_columns = ['Author', 'Post/Comment Karma Ratio', 'Moderator Of', 'Buzzwords']
     users_report = processed_data.groupby(users_columns)['Title'].count()
     users_report = users_report.reset_index()
     users_report = users_report.rename({'Title': 'Post Count'}, axis=1)
