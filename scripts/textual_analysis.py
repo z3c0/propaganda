@@ -1,6 +1,6 @@
 import datetime as dt
 import re
-from typing import List, Tuple
+from typing import Tuple
 import numpy as np
 import pandas as pd
 import string

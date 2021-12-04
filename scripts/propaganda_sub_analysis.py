@@ -32,10 +32,7 @@ def process_crossposts(sub_df: pd.DataFrame, submissions_df: pd.DataFrame, user_
     post_records = list()
 
     for author in sub_df.author.unique():
-
         propaganda_posts = sub_df[sub_df.author == author]
-        text_posts = propaganda_posts.type == 'text'
-        propaganda_posts = pd.DataFrame(propaganda_posts[~text_posts])
         other_posts = submissions_df[submissions_df.author == author]
         other_posts = other_posts[other_posts.subreddit != 'propaganda']
         other_posts = pd.DataFrame(other_posts)
@@ -78,8 +75,6 @@ def process_buzzwords(records):
 
     terms_df = terms_df.drop('terms', axis=1)
 
-    terms_df = terms_df[5 >= terms_df['rank']]
-
     terms_df['token'] = terms_df['term'].apply(lambda n: tokenize(n)[0][0])
     terms_df = terms_df.groupby(['author', 'token', 'tf_idf', 'rank'])['term'].agg(list).reset_index()
 
@@ -87,10 +82,10 @@ def process_buzzwords(records):
 
     terms_df = terms_df.groupby(['author', 'rank'])['term'].agg(list).reset_index()
 
-    # filter out ranks with more than 15 words; such a large group would
+    # filter out ranks with more than 10 words; such a large group would
     # indicate that the author does not have enough posts from which to derive
     # a meaningful pattern
-    terms_df = terms_df[15 >= terms_df.term.apply(len)]
+    terms_df = terms_df[10 >= terms_df.term.apply(len)]
 
     terms_df['term'] = terms_df['term'].apply(', '.join)
 
@@ -144,7 +139,7 @@ def prepare_data(records: list) -> list:
                       'Source': record['domain'],
                       'Score': record['score'],
                       'Comments': record['comments'],
-                      'Author': record['author_display'],
+                      'Author': 'u/' + record['author_display'],
                       'Post/Comment Karma Ratio': record['karma_ratio'],
                       'Moderator Of': record['moderator_of'],
                       'X-post Subreddits': record['other_subreddits'],
@@ -189,7 +184,9 @@ def analyze_posts():
     author_df['author_display'] = np.where(author_df.is_new, author_df.index + ' (NEW)', author_df.index)
 
     post_records_with_crossposts = process_crossposts(propaganda_posts_df, author_posts_df, author_df)
+
     post_records_with_buzzwords = process_buzzwords(post_records_with_crossposts)
+
     processed_records = prepare_data(post_records_with_buzzwords)
 
     sort_kwargs = {'key': lambda n: n['Score'], 'reverse': True}
@@ -203,6 +200,7 @@ def analyze_posts():
     users_report = users_report.rename({'Title': 'Post Count'}, axis=1)
     users_report = users_report.sort_values('Post Count', ascending=False)
 
+    print(f'Last Week: {last_week_str}')
     print(f'New Posts Count: {len(posts_report)}')
     print(f'This Week\'s Author Count: {len(users_report)}')
 
