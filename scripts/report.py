@@ -94,9 +94,9 @@ def process_buzzwords(records):
 
     terms_df = terms_df.sort_values(['author', 'rank'])
 
-    terms_df['term'] = terms_df.apply(lambda n: f'{int(n["rank"])}) {n["term"]}', axis=1)
+    terms_df['term'] = terms_df.apply(lambda n: f'({int(n["rank"])}) {n["term"]}', axis=1)
 
-    term = terms_df.groupby('author')['term'].agg('<br />'.join)
+    term = terms_df.groupby('author')['term'].agg(', '.join)
 
     records = list(map(lambda n: dict(n, buzzwords=term[n['author']]), records))
 
