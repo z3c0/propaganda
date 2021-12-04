@@ -7,6 +7,9 @@ from scrape import SubredditScraper
 from textual_analysis import tokenize
 from whois import whois
 
+
+BUZZWORD_THRESHOLD = 5
+
 today = dt.date.today()
 today_str = today.strftime('%Y%m%d')
 
@@ -85,7 +88,7 @@ def process_buzzwords(records):
     # filter out ranks with more than 10 words; such a large group would
     # indicate that the author does not have enough posts from which to derive
     # a meaningful pattern
-    terms_df = terms_df[10 >= terms_df.term.apply(len)]
+    terms_df = terms_df[BUZZWORD_THRESHOLD + 1 > terms_df.term.apply(len)]
 
     terms_df['term'] = terms_df['term'].apply(', '.join)
 
