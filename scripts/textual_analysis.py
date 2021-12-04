@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import string
 import json
+import os
 
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer

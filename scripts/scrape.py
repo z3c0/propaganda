@@ -3,6 +3,7 @@ import datetime as dt
 import requests
 import pandas as pd
 import bs4
+import time
 import os
 
 from selenium import webdriver
@@ -224,28 +225,62 @@ class SubredditScraper:
         return user_profile
 
 
-def download_subreddit_posts(subreddit: str):
+def scrape(subreddit: str, exclude_authors=set()):
     scrape = SubredditScraper()
 
+    print('=' * 80)
     print(f'scraping posts from /r/{subreddit}...')
-    posts = scrape.posts(subreddit)
-    posts_df = pd.DataFrame(posts)
+    print('=' * 80)
+
+    post_records = scrape.posts(subreddit)
+    posts_df = pd.DataFrame(post_records)
 
     author_post_records = list()
     author_records = list()
 
-    for author in posts_df['author'].unique():
-        print(f'scraping {author}\'s profile...')
-        author_record = scrape.user_profile(author)
+    for user in posts_df['author'].unique():
+        if user in exclude_authors:
+            continue
 
-        if not author_record['suspended']:
-            print(f'scraping {author}\'s submissions...')
-            author_posts = scrape.user_submissions(author)
+        print(f'scraping {user}\'s profile...')
+        author = scrape.user_profile(user)
+
+        if not author['suspended']:
+            print(f'scraping {user}\'s submissions...')
+            author_posts = scrape.user_submissions(user)
             author_post_records += author_posts
 
-        author_records.append(author_record)
+        author_records.append(author)
 
-    author_posts_df = pd.DataFrame(author_post_records)
+    return post_records, author_records, author_post_records
+
+
+def download_subreddit_posts(subreddit: str, depth=1, exclude_authors=set()):
+    if depth > 0:
+        depth -= 1
+        layer_posts, layer_authors, layer_author_posts = scrape(subreddit, exclude_authors)
+
+        unique_authors = set(a['username'] for a in layer_authors)
+        subreddits = set(s['subreddit'] for s in layer_author_posts)
+
+        download_kwargs = {'exclude_authors': unique_authors,
+                           'depth': depth}
+
+        for subreddit in subreddits:
+            posts, authors, author_posts = download_subreddit_posts(subreddit, **download_kwargs)
+            layer_posts += posts
+            layer_authors += authors
+            layer_author_posts += author_posts
+    else:
+        layer_posts, layer_authors, layer_author_posts = scrape(subreddit, exclude_authors)
+
+    return layer_posts, layer_authors, layer_author_posts
+
+
+
+def save_records(subreddit, post_records, author_records, author_posts_records):
+    posts_df = pd.DataFrame(post_records)
+    author_posts_df = pd.DataFrame(author_posts_records)
     author_df = pd.DataFrame(author_records)
 
     date_str = dt.date.today().strftime('%Y%m%d')
@@ -262,5 +297,11 @@ def download_subreddit_posts(subreddit: str):
     author_df.to_json(f'{subreddit}_authors.json', orient='records')
 
 
+
+def main():
+    subreddit = 'propaganda'
+    save_records(subreddit, *download_subreddit_posts(subreddit, 0))
+
+
 if __name__ == '__main__':
-    download_subreddit_posts('propaganda')
+    main()
