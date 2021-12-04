@@ -44,7 +44,7 @@ def tokenize(text: str) -> Tuple[np.array, np.array]:
     return tokens, words
 
 
-if __name__ == '__main__':
+def term_freq_by_inverse_document_freq():
     target_snapshot_path = f'data/{today_str}/propaganda_author_submissions.csv'
     submissions_df = pd.read_csv(target_snapshot_path)
 

@@ -153,7 +153,7 @@ def prepare_data(records: list) -> list:
     return processed_records
 
 
-def analyze_posts():
+def build():
     last_week_author_posts_df = pd.read_csv(f'data/{last_week_str}/propaganda_author_submissions.csv')
     last_week_propaganda_posts_df = pd.read_csv(f'data/{last_week_str}/propaganda_posts.csv')
     last_week_author_df = pd.read_json(f'data/{last_week_str}/propaganda_authors.json')
@@ -242,4 +242,4 @@ def download_posts_from_subreddits(subreddits: list):
 
 
 if __name__ == '__main__':
-    analyze_posts()
+    build()
