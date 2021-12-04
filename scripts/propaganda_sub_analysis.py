@@ -78,8 +78,6 @@ def process_buzzwords(records):
 
     terms_df = terms_df.drop('terms', axis=1)
 
-    terms_df = terms_df[5 >= terms_df['rank']]
-
     terms_df['token'] = terms_df['term'].apply(lambda n: tokenize(n)[0][0])
     terms_df = terms_df.groupby(['author', 'token', 'tf_idf', 'rank'])['term'].agg(list).reset_index()
 
@@ -87,10 +85,10 @@ def process_buzzwords(records):
 
     terms_df = terms_df.groupby(['author', 'rank'])['term'].agg(list).reset_index()
 
-    # filter out ranks with more than 15 words; such a large group would
+    # filter out ranks with more than 7 words; such a large group would
     # indicate that the author does not have enough posts from which to derive
     # a meaningful pattern
-    terms_df = terms_df[15 >= terms_df.term.apply(len)]
+    terms_df = terms_df[7 >= terms_df.term.apply(len)]
 
     terms_df['term'] = terms_df['term'].apply(', '.join)
 
@@ -144,7 +142,7 @@ def prepare_data(records: list) -> list:
                       'Source': record['domain'],
                       'Score': record['score'],
                       'Comments': record['comments'],
-                      'Author': record['author_display'],
+                      'Author': 'u/' + record['author_display'],
                       'Post/Comment Karma Ratio': record['karma_ratio'],
                       'Moderator Of': record['moderator_of'],
                       'X-post Subreddits': record['other_subreddits'],
