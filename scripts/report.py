@@ -98,7 +98,7 @@ def process_buzzwords(records):
 
     term = terms_df.groupby('author')['term'].agg(' '.join)
 
-    records = list(map(lambda n: dict(n, buzzwords=term[n['author']]), records))
+    records = list(map(lambda n: dict(n, buzzwords=term.get(n['author'])), records))
 
     return records
 
